@@ -58,6 +58,9 @@ a{color:var(--accent)}
 .seg button{background:none;border:0;padding:5px 11px;color:var(--ink2)}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+#invF,#ppF{margin-top:20px}
+.permob{display:none;background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:5px 9px;align-items:center;gap:6px;font-size:13px}
+.permob select{padding:3px 2px;background:var(--surface);border:1px solid var(--line);border-radius:3px;font-size:16px}
 .pphead{font:600 13px var(--body);color:var(--ink2);margin:14px 0 2px}
 
 /* postavitev */
@@ -174,6 +177,8 @@ dl.meta dt{color:var(--ink2)}dl.meta dd{margin:0}
   .tools .chk{font-size:12px}
   .chips{left:8px;bottom:22px}
   .lvl{display:none}
+  .permob{display:flex}
+  .period select{font-size:16px}
   .drawer{width:100%;border-left:0}
 }
 .side-close{display:none;justify-content:space-between;align-items:center;margin-bottom:10px}
@@ -198,13 +203,13 @@ dl.meta dt{color:var(--ink2)}dl.meta dd{margin:0}
 <div class="work">
   <aside class="side" id="side" aria-label="Filtri">
     <div class="side-close"><b>Filtri</b><button class="x" id="closeFilters" type="button" aria-label="Zapri filtre">×</button></div>
-    <div id="invF"><h2>Obdobje</h2>
+    <h2>Obdobje</h2>
     <div class="period"><select id="yFrom" aria-label="Od leta"></select><span>do</span><select id="yTo" aria-label="Do leta"></select></div>
     <p class="note" id="yNote" hidden></p>
-    <h2>Status</h2><div id="fStatus"></div>
+    <div id="invF"><h2>Status</h2><div id="fStatus"></div>
     <h2>Področje</h2><div id="fCats"></div>
     <h2>Vir sredstev</h2><div id="fFund"></div></div>
-    <div id="ppF" hidden><h2>Cikel</h2><div id="ppC"></div><h2>Izvedba</h2><div id="ppS"></div><p class="note">Zneski so porabljena sredstva po zaključnih računih, stanje 30. 6. 2026.</p></div>
+    <div id="ppF" hidden><h2>Cikel</h2><div id="ppC"></div><h2>Izvedba</h2><div id="ppS"></div><p class="note">Zneski so porabljena sredstva po zaključnih računih, stanje 30. 6. 2026. Projekt, ki traja več let, je štet v celoti, če je vsaj eno leto v izbranem obdobju.</p></div>
     <button class="btn ghost reset" id="reset" type="button" hidden>Ponastavi filtre</button>
     <div class="foot">Podatki: Občina Komen, pregledano <span id="asOf"></span>. <button class="linkish" id="openAbout" type="button">O podatkih in opombe</button></div>
   </aside>
@@ -216,6 +221,7 @@ dl.meta dt{color:var(--ink2)}dl.meta dd{margin:0}
       <label class="chk"><input type="checkbox" id="tNames" checked> Imena krajev</label>
     </div>
     <div class="chips">
+      <div class="permob" role="group" aria-label="Obdobje"><span>Obdobje</span><select id="yFromM" aria-label="Od leta"></select><span>do</span><select id="yToM" aria-label="Do leta"></select></div>
       <div class="lvl" id="lvl"></div>
       <button class="shared" id="sharedBtn" type="button"></button>
     </div>
@@ -256,7 +262,8 @@ const init=()=>({from:YMIN,to:YMAX,cats:new Set(CATK),stat:new Set(STAT),fund:ne
 let S=init();
 const initP=()=>({c:new Set(PPK),s:new Set(PPS)});
 let SP=initP();
-const ppPass=p=>SP.c.has(p.cat)&&SP.s.has(p.status);
+const ppYear=p=>p.od<=S.to&&p.do>=S.from;
+const ppPass=p=>SP.c.has(p.cat)&&SP.s.has(p.status)&&ppYear(p);
 function ppAgg(vs,list){const own=list.filter(p=>p.vs===vs),cats={};let v=0,plan=0;own.forEach(p=>{v+=p.v;plan+=p.plan;cats[p.cat]=(cats[p.cat]||0)+p.v;});return {v,plan,count:own.length,cats,own,shared:[]};}
 function pYear(p,s){
   if(p.od==null&&p.do==null) return s.from===YMIN&&s.to===YMAX;
@@ -372,7 +379,7 @@ function draw(){
       let dist=Math.hypot(dx,dy)||.01;
       if(dist<min){const push=(min-dist)/2;dx/=dist;dy/=dist;a.x-=dx*push;a.y-=dy*push;b.x+=dx*push;b.y+=dy*push;moved=true;}
     }
-    const SZ=map.getSize();ents.forEach(e=>{e.x=Math.min(SZ.x-e.d/2-6,Math.max(e.d/2+6,e.x));e.y=Math.min(SZ.y-e.d/2-24,Math.max(e.d/2+6,e.y));});
+    const SZ=map.getSize();ents.forEach(e=>{e.x=Math.min(SZ.x-e.d/2-6,Math.max(e.d/2+6,e.x));e.y=Math.min(SZ.y-e.d/2-(small?108:24),Math.max(e.d/2+6,e.y));});
     if(!moved)break;
   }
   ents.forEach(e=>{
@@ -401,20 +408,21 @@ function draw(){
 
 /* --- filtri --- */
 function fillYears(){
-  for(const sel of [$("yFrom"),$("yTo")]){
+  for(const sel of [$("yFrom"),$("yTo"),$("yFromM"),$("yToM")]){
     for(let y=YMIN;y<=YMAX;y++){const o=document.createElement("option");o.value=y;o.textContent=y;sel.appendChild(o);}
   }
 }
 function drawPPFilters(){
-  const all=PP.filter(p=>SP.s.has(p.status));
+  const all=PP.filter(p=>SP.s.has(p.status)&&ppYear(p));
   $("ppC").innerHTML=PPK.map(k=>{const l=all.filter(p=>p.cat===k),v=l.reduce((x,p)=>x+p.v,0),n=PPD.napoved[k];
     return `<label class="cat${SP.c.has(k)?"":" off"}"><span class="row"><input type="checkbox" data-ppc="${k}" ${SP.c.has(k)?"checked":""}><span class="nm">${esc(CAT[k][0])}</span><span class="amt">${eur(v)}</span></span><span class="bar" style="display:block"><i style="width:${Math.min(100,v/n*100)}%;background:${CAT[k][1]}"></i></span><span class="note" style="display:block;margin:3px 0 0 23px">od ${eur(n)} napovedanih</span></label>`}).join("");
-  $("ppS").innerHTML=PPS.map(s=>`<label class="chk"><input type="checkbox" data-pps="${esc(s)}" ${SP.s.has(s)?"checked":""}> ${esc(s)}<span class="ct">${PP.filter(p=>p.status===s&&SP.c.has(p.cat)).length}</span></label>`).join("");
-  $("reset").hidden=SP.c.size===PPK.length&&SP.s.size===PPS.length;
+  $("ppS").innerHTML=PPS.map(s=>`<label class="chk"><input type="checkbox" data-pps="${esc(s)}" ${SP.s.has(s)?"checked":""}> ${esc(s)}<span class="ct">${PP.filter(p=>p.status===s&&SP.c.has(p.cat)&&ppYear(p)).length}</span></label>`).join("");
+  $("reset").hidden=SP.c.size===PPK.length&&SP.s.size===PPS.length&&S.from===YMIN&&S.to===YMAX;
 }
 function drawFilters(){
   $("invF").hidden=mode==="pp";$("ppF").hidden=mode!=="pp";
-  if(mode==="pp"){drawPPFilters();return;}
+  $("yFrom").value=S.from;$("yTo").value=S.to;$("yFromM").value=S.from;$("yToM").value=S.to;
+  if(mode==="pp"){$("yNote").hidden=true;drawPPFilters();return;}
   $("yFrom").value=S.from;$("yTo").value=S.to;
   const noDate=P.filter(p=>p.od==null&&p.do==null).length;
   const narrowed=S.from!==YMIN||S.to!==YMAX;
@@ -440,7 +448,7 @@ function drawKPI(){
   if(mode==="pp"){
     $("kTotal").textContent=eur(l.reduce((x,p)=>x+p.v,0));
     $("kOwn").textContent=eur(l.filter(p=>p.pot).reduce((x,p)=>x+p.v,0));
-    $("kExt").textContent=eur(PPK.filter(k=>SP.c.has(k)).reduce((x,k)=>x+PPD.napoved[k],0));
+    $("kExt").textContent=eur(PPK.filter(k=>SP.c.has(k)&&l.some(p=>p.cat===k)).reduce((x,k)=>x+PPD.napoved[k],0));
     $("kCount").textContent=l.length;
     return;
   }
@@ -460,6 +468,8 @@ $("side").addEventListener("change",e=>{
   else if(t.dataset.pps){t.checked?SP.s.add(t.dataset.pps):SP.s.delete(t.dataset.pps);}
   refresh();
 });
+$("yFromM").onchange=e=>{S.from=+e.target.value;if(S.to<S.from)S.to=S.from;refresh();};
+$("yToM").onchange=e=>{S.to=+e.target.value;if(S.from>S.to)S.from=S.to;refresh();};
 function resetAll(){S=init();SP=initP();refresh();}
 $("reset").onclick=resetAll;$("reset2").onclick=resetAll;
 ["tBorders","tNames"].forEach(id=>$(id).onchange=draw);
