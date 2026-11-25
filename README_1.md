@@ -14,3 +14,5 @@ To je neuradni prikaz podatkov. Stanje: 2. 11. 2026.
 ## Zgradba
 
 Vsa aplikacija in njeni podatki so v eni datoteki, `index.html`. Knjižnica Leaflet se naloži s cdnjs, pisave pa z Google Fonts.
+
+Obiski strani se štejejo z [GoatCounter](https://www.goatcounter.com/), brez piškotkov in brez osebnih podatkov.
